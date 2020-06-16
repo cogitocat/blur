@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+#############################################################
+# Unofficial miner instructions - CPU-only
+# TODO: Include and enable CUDA driver installation and compilation
+# 
+# This software is intended to be used as a guide, a HOW-TO, for
+# users to compile the software with minimal hand-holding.
+#
+# It is a requirement to have some experience compiling software.
+#
+# Author: Descartes Cogitocat
+#############################################################
+
+set -xv
+source /etc/bash.bashrc
+source /etc/profile
+
+#############################################################
+# AOCC compilation optimizations
+#
+apt-get install -y automake autoconf pkg-config libcurl4-openssl-dev libjansson-dev libssl-dev libgmp-dev make g++ git build-essential cmake libuv1-dev libhwloc-dev
+
+### This method is obsolete.  Dropbox was increasingly reliable
+###
+## Get/Install AOCC from cogitocat's gdrive.
+#FILEID=1C7Jkc6CVhM7ILPd3e5bEUbWSkgfbYirW
+#FILENAME=aocc-compiler-2.1.0_1_amd64.deb
+## This doesn't work consistently.  Google for "AMD aocc compiler"
+##wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=${FILEID}' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=${FILEID}" -O ${FILENAME} && rm -rf /tmp/cookies.txt
+
+#############################################################
+# Dropbox method
+FILENAME=aocc-compiler-2.1.0_1_amd64.deb
+wget https://www.dropbox.com/sh/xv2jdrs0uc6z2b9/AACAPqZJTjVbLlXhBNRR2N1Ja/${FILENAME}
+
+dpkg -i ${FILENAME}
+
+apt-get install -y lib32z1-dev
+#############################################################
+
+# Abort of running on an A4-3400 CPU, xmrig currently wont run on these:
+lscpu | grep -w A4-3300 && exit 0
+
+	# This is the git tag, change to whatever you want, or default to the master/main branch #blm
+        #VERSION=feature-hwloc
+        POOL="10.255.255.2:52542"
+        WALLET="bL3j7Pbbc49ZM3Rmx9XabReVRLTruCMZjNFa6wd59tZS9TAGwc2MsstFvtamTq6DSzKN12CRzaQ4ecQWHznJeycD3BFi6F3ap"
+        cd /tmp
+        rm -rf blur-miner 2>/dev/null
+        git clone https://github.com/fart-master/blur-miner.git
+        cd blur-miner
+        mkdir bin
+        cd bin
+        # AOCC Changes
+        source /opt/AMD/aocc-compiler-2.1.0/setenv_AOCC.sh
+        export CC=/opt/AMD/aocc-compiler-2.1.0/bin/clang
+        export CXX=/opt/AMD/aocc-compiler-2.1.0/bin/clang++
+        cmake -WITH_OPENCL=OFF -DCMAKE_C_FLAGS="-O3 -march=native -funroll-loops -fomit-frame-pointer" ..
+
+	# This is for a standard GCC compilaation
+        #cmake -WITH_OPENCL=OFF ..
+
+        make -j6
+        cmake -DCMAKE_C_COMPILER=/usr/bin/gcc ..}/xmrig-cuda
+        make -j6
+        cp ./libxmrig-cuda.so ../libxmrig-cuda.so
+
+        sysctl -w vm.nr_hugepages=1250
+        cat << EOF > config.json
+{
+    "api": {
+        "id": null,
+        "worker-id": null
+    },
+    "http": {
+        "enabled": false,
+        "host": "127.0.0.1",
+        "port": 0,
+        "access-token": null,
+        "restricted": true
+    },
+    "autosave": true,
+    "background": false,
+    "colors": true,
+    "cpu": {
+        "enabled": true,
+        "huge-pages": true,
+        "hw-aes": true,
+        "priority": null,
+        "memory-pool": false,
+        "cn/blur": {
+            "threads": null
+        }
+    },
+    "opencl": {
+        "enabled": false
+    },
+    "cuda": {
+        "enabled": false,
+        "loader": "xmrig-cuda.dll",
+        "nvml": true,
+        "cn/blur": [{
+            "index": 0,
+            "threads": 64,
+            "blocks": 30,
+            "bfactor": 0,
+            "bsleep": 0,
+            "affinity": -1
+        }]
+    },
+    "log-file": null,
+    "pools": [{
+        "url": "$POOL",
+        "user": "$WALLET",
+        "enabled": true,
+        "tls": false,
+        "tls-fingerprint": null,
+        "daemon": true,
+        "daemon-poll-interval": 25
+    }],
+    "print-time": 5,
+    "health-print-time": 60,
+    "retries": 5,
+    "retry-pause": 5,
+    "syslog": true,
+    "user-agent": null,
+    "watch": true
+}
+
+EOF
+
+# Disable Prefetchers for a small speed bump.  This doens't help as much here as it does for RandomX.
+
+apt install -y msr-tools
+modprobe msr
+
+#
+if cat /proc/cpuinfo | grep "AMD Ryzen" > /dev/null;
+then
+echo "Detected Ryzen"
+wrmsr -a 0xc0011022 0x510000
+wrmsr -a 0xc001102b 0x1808cc16
+wrmsr -a 0xc0011020 0
+wrmsr -a 0xc0011021 0x40
+echo "MSR register values for Ryzen applied"
+elif cat /proc/cpuinfo | grep "Intel" > /dev/null;
+then
+echo "Detected Intel - Disable tuning for now... cogitocat"
+echo wrmsr -a 0x1a4 0xf
+echo "MSR register values for Intel applied"
+else
+echo "No supported CPU detected"
+fi
