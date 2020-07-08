@@ -21,4 +21,4 @@ source /etc/profile
 #	make -j6
 #	cp ./libxmrig-cuda.so ../libxmrig-cuda.so
 
-	mv bin /blur-miner
+	mv ../bin /blur-miner
