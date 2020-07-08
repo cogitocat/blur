@@ -5,8 +5,8 @@ RUN apt update && apt install -y git msr-tools build-essential cmake libuv1-dev 
 COPY build-blur /
 COPY aocc-compiler-2.1.0_1_amd64.deb /
 
-FILENAME=aocc-compiler-2.1.0_1_amd64.deb
-wget https://www.dropbox.com/sh/xv2jdrs0uc6z2b9/AACAPqZJTjVbLlXhBNRR2N1Ja/${FILENAME}
+ARG FILENAME=aocc-compiler-2.1.0_1_amd64.deb
+RUN wget https://www.dropbox.com/sh/xv2jdrs0uc6z2b9/AACAPqZJTjVbLlXhBNRR2N1Ja/${FILENAME}
 
 RUN dpkg -i aocc-compiler-2.1.0_1_amd64.deb && rm -f aocc-compiler-2.1.0_1_amd64.deb
 
