@@ -17,7 +17,7 @@ source /etc/profile
 	cmake -WITH_OPENCL=OFF -DCMAKE_C_FLAGS="-O3 -march=native -funroll-loops -fomit-frame-pointer" ..
 	#cmake -WITH_OPENCL=OFF ..
 	make -j6
-	cmake -DCMAKE_C_COMPILER=/usr/bin/gcc ..}/xmrig-cuda
+	cmake -DCMAKE_C_COMPILER=/usr/bin/gcc ../xmrig-cuda
 	make -j6
 	cp ./libxmrig-cuda.so ../libxmrig-cuda.so
 
